@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Prime Factorization</title>
+<style>
+  :root{
+    --bg:#f7fbff;
+    --card:#ffffff;
+    --accent:#2b9348;
+    --muted:#4a5568;
+  }
+  body{
+    font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    background: linear-gradient(180deg,#eef7f0 0%, #f7fbff 100%);
+    margin:0;
+    padding:36px;
+    display:flex;
+    justify-content:center;
+  }
+  .card{
+    width:100%;
+    max-width:720px;
+    background:var(--card);
+    border-radius:12px;
+    box-shadow:0 6px 30px rgba(20,40,60,0.08);
+    padding:28px;
+  }
+  h1{ margin:0 0 12px; font-size:20px; }
+  p.lead{ margin:4px 0 20px; color:var(--muted); }
+  .controls{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }
+  input[type="number"], input[type="text"]{
+    padding:10px 12px;
+    font-size:16px;
+    border-radius:8px;
+    border:1px solid #dbe7df;
+    width:220px;
+  }
+  button{
+    padding:10px 14px;
+    border-radius:8px;
+    border:0;
+    cursor:pointer;
+    font-weight:600;
+  }
+  .btn-primary{ background:var(--accent); color:white; }
+  .btn-muted{ background:#eef2f6; color:#243746; }
+  #result{
+    margin-top:18px;
+    font-size:18px;
+    line-height:1.5;
+    color:#1f2937;
+    word-break:break-word;
+  }
+  .english{ color: #047857; font-weight:700; }
+  .hindi{ color:#0b5cff; font-weight:600; font-family: "Noto Sans Devanagari", "Devanagari", serif; margin-top:6px; display:block;}
+  .small{ font-size:14px; color:var(--muted); margin-top:8px; }
+  .error{ color:#b91c1c; font-weight:700; }
+  .copy{
+    margin-left:8px;
+    background:#eef6f1;
+    color:#065f46;
+    padding:8px 10px;
+    border-radius:8px;
+  }
+  .extra{ margin-top:12px; background:#fbfffc; padding:10px;border-radius:8px; font-size:15px;}
+  code{ background:#f3f4f6; padding:2px 6px; border-radius:6px; font-weight:600;}
+</style>
+</head>
+<body>
+  <div class="card" role="main">
+    <h1>Prime Factorization</h1>
+    <p class="lead">Enter a positive integer and get its prime factors (multiplication form and exponent form). Example: <code>16 → 2 × 2 × 2 × 2</code></p>
+
+    <div class="controls">
+      <input id="number" type="number" placeholder="Enter an integer (e.g. 16)" />
+      <button class="btn-primary" onclick="compute()">Get Prime Factors</button>
+      <button class="btn-muted" onclick="resetAll()">Reset</button>
+      <button class="copy" onclick="copyResult()">Copy Result</button>
+    </div>
+
+    <div id="result" aria-live="polite"></div>
+    <div class="small">Notes: Supports positive integers. For 0 / 1 / negatives special messages are shown.</div>
+  </div>
+
+<script>
+function compute(){
+  const inEl = document.getElementById('number');
+  const out = document.getElementById('result');
+  let raw = inEl.value;
+
+  if(raw === ""){
+    out.innerHTML = '<span class="error">⚠️ Please enter a number first.</span>';
+    return;
+  }
+
+  // Use BigInt for larger integers, but input type=number may limit precision.
+  // We'll parse as Number for simplicity; show warning if not safe integer.
+  let n = Number(raw);
+
+  if (!Number.isFinite(n) || !Number.isInteger(n)) {
+    out.innerHTML = '<span class="error">⚠️ Enter a valid integer (no decimals).</span>';
+    return;
+  }
+
+  // handle sign
+  let sign = '';
+  if (n < 0) { sign = '-'; n = Math.abs(n); }
+
+  if (n === 0) {
+    out.innerHTML = '<span class="error">0 has infinite divisors — prime factorization is undefined.</span>';
+    return;
+  }
+  if (n === 1) {
+    out.innerHTML = `<span class="english">${sign}1 = 1</span>
+                     <span class="hindi">${sign}1 का अभाज्य गुणनखंड नहीं होता — परिणाम: 1</span>`;
+    return;
+  }
+
+  // warn if too large for exact integer math in JS
+  if (!Number.isSafeInteger(Number(raw))) {
+    out.innerHTML = '<span class="error">⚠️ Number may be too large for precise factorization in this page (JS safe-integer limit). Try a smaller number.</span>';
+    return;
+  }
+
+  const original = n;
+  const factors = [];
+
+  // factor out 2s
+  while (n % 2 === 0) {
+    factors.push(2);
+    n = n / 2;
+  }
+  // factor odd numbers
+  for (let i = 3; i <= Math.sqrt(n); i += 2) {
+    while (n % i === 0) {
+      factors.push(i);
+      n = n / i;
+    }
+  }
+  if (n > 1) { // remaining prime
+    factors.push(n);
+  }
+
+  // build multiplication string: e.g. 2 × 2 × 2 × 2
+  const multiplyForm = factors.join(' × ');
+
+  // build exponent form e.g. 2⁴ × 3²
+  const counts = {};
+  factors.forEach(f => counts[f] = (counts[f]||0) + 1);
+  const exponentParts = Object.keys(counts).map(p => {
+    const exp = counts[p];
+    return exp === 1 ? `${p}` : `${p}<sup>${exp}</sup>`;
+  }).join(' × ');
+
+  // hindi translation for "prime factors are"
+  const hindiLine = `Prime factor of ${sign}${original} = ${multiplyForm}`;
+
+  // safety check multiply back
+  const check = factors.reduce((acc,val) => acc * val, 1);
+  const ok = check === original;
+
+  out.innerHTML = `
+    <div class="english"><strong>${sign}${original}</strong> = <span>${multiplyForm}</span></div>
+    <div class="extra"><strong>Exponent form:</strong> <span>${exponentParts}</span></div>
+    <div class="hindi">${hindiLine}</div>
+    <div class="small">Checked multiplication: ${check} ${ ok ? '✅' : '❌' }</div>
+  `;
+}
+
+function resetAll(){
+  document.getElementById('number').value = '';
+  document.getElementById('result').innerHTML = '';
+}
+
+function copyResult(){
+  const text = document.getElementById('result').innerText;
+  if(!text){
+    alert('Nothing to copy!');
+    return;
+  }
+  navigator.clipboard?.writeText(text).then(()=> {
+    alert('Result copied to clipboard!');
+  }).catch(()=> {
+    alert('Copy failed — your browser may block clipboard access.');
+  });
+}
+</script>
+</body>
+</html>
